@@ -39,15 +39,11 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
            "ORDER BY v.insuranceExpiry ASC")
     List<Vehicle> findVehiclesWithExpiringInsurance(@Param("cutoffDate") LocalDate cutoffDate);
 
-    // Vehicles that are service-due by date
-    @Query("SELECT v FROM Vehicle v WHERE v.nextServiceDate IS NOT NULL " +
-           "AND v.nextServiceDate <= :today AND v.status = 'ACTIVE'")
-    List<Vehicle> findVehiclesDueForServiceByDate(@Param("today") LocalDate today);
-
-    // Vehicles that are service-due by mileage
-    @Query("SELECT v FROM Vehicle v WHERE v.nextServiceMileage IS NOT NULL " +
-           "AND v.currentMileage >= v.nextServiceMileage AND v.status = 'ACTIVE'")
-    List<Vehicle> findVehiclesDueForServiceByMileage();
+    // Vehicles that are service-due by date or mileage
+    @Query("SELECT v FROM Vehicle v WHERE v.status = 'ACTIVE' AND (" +
+           "(v.nextServiceDate IS NOT NULL AND v.nextServiceDate <= :today) OR " +
+           "(v.nextServiceMileage IS NOT NULL AND v.currentMileage >= v.nextServiceMileage))")
+    List<Vehicle> findVehiclesDueForService(@Param("today") LocalDate today);
 
     // Update status in-place (used by Request Service callback)
     @Modifying

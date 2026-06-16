@@ -24,10 +24,10 @@ public interface VehicleTelemetryRepository extends JpaRepository<VehicleTelemet
      */
     @Query("""
         SELECT t FROM VehicleTelemetry t
-        WHERE t.recordedAt = (
-            SELECT MAX(t2.recordedAt)
+        WHERE (t.vehicleId, t.recordedAt) IN (
+            SELECT t2.vehicleId, MAX(t2.recordedAt)
             FROM VehicleTelemetry t2
-            WHERE t2.vehicleId = t.vehicleId
+            GROUP BY t2.vehicleId
         )
         ORDER BY t.vehicleId ASC
         """)

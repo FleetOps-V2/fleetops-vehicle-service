@@ -79,13 +79,7 @@ public class VehicleService {
     }
 
     public List<Vehicle> getServiceDueAlerts() {
-        List<Vehicle> byDate = vehicleRepository.findVehiclesDueForServiceByDate(LocalDate.now());
-        List<Vehicle> byMileage = vehicleRepository.findVehiclesDueForServiceByMileage();
-        // Merge and deduplicate by ID
-        byDate.addAll(byMileage.stream()
-                .filter(v -> byDate.stream().noneMatch(d -> d.getId().equals(v.getId())))
-                .toList());
-        return byDate;
+        return vehicleRepository.findVehiclesDueForService(LocalDate.now());
     }
 
     /** Manager Dashboard KPI summary — FIX #5: single aggregate query, not 3 list fetches */

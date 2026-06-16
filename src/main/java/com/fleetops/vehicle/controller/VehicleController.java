@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -91,13 +92,13 @@ public class VehicleController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Vehicle> createVehicle(@RequestBody Vehicle vehicle) {
+    public ResponseEntity<Vehicle> createVehicle(@Valid @RequestBody Vehicle vehicle) {
         return ResponseEntity.status(201).body(vehicleService.createVehicle(vehicle));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Vehicle> updateVehicle(@PathVariable Long id, @RequestBody Vehicle details) {
+    public ResponseEntity<Vehicle> updateVehicle(@PathVariable Long id, @Valid @RequestBody Vehicle details) {
         return vehicleService.updateVehicle(id, details)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -116,7 +117,7 @@ public class VehicleController {
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
     public ResponseEntity<?> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> payload) {
-        if (!payload.containsKey("status")) {
+        if (!payload.containsKey("status") || payload.get("status") == null) {
             return ResponseEntity.badRequest().body("Missing 'status' in payload");
         }
         try {
