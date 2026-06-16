@@ -88,22 +88,29 @@ public class VehicleService {
         return byDate;
     }
 
-    /** Manager Dashboard KPI summary */
+    /** Manager Dashboard KPI summary — FIX #5: single aggregate query, not 3 list fetches */
     public Map<String, Long> getDashboardStats() {
         long total = vehicleRepository.count();
-        long active = vehicleRepository.findByStatus(VehicleStatus.ACTIVE).size();
-        long inService = vehicleRepository.findByStatus(VehicleStatus.IN_SERVICE).size();
-        long breakdown = vehicleRepository.findByStatus(VehicleStatus.BREAKDOWN).size();
         long insuranceExpiring = getInsuranceExpiringAlerts().size();
         long serviceDue = getServiceDueAlerts().size();
 
+        // Single GROUP BY query replaces: findByStatus(ACTIVE).size() × 3
+        Map<String, Long> statusCounts = new java.util.HashMap<>();
+        vehicleRepository.countGroupedByStatus().forEach(row -> {
+            Object statusObj = row.get("status");
+            Object totalObj  = row.get("total");
+            if (statusObj != null && totalObj != null) {
+                statusCounts.put(statusObj.toString(), ((Number) totalObj).longValue());
+            }
+        });
+
         return Map.of(
-                "total", total,
-                "active", active,
-                "inService", inService,
-                "breakdown", breakdown,
+                "total",             total,
+                "active",            statusCounts.getOrDefault(VehicleStatus.ACTIVE.name(), 0L),
+                "inService",         statusCounts.getOrDefault(VehicleStatus.IN_SERVICE.name(), 0L),
+                "breakdown",         statusCounts.getOrDefault(VehicleStatus.BREAKDOWN.name(), 0L),
                 "insuranceExpiring", insuranceExpiring,
-                "serviceDue", serviceDue
+                "serviceDue",        serviceDue
         );
     }
 

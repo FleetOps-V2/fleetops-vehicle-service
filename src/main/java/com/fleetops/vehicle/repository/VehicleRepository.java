@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
 
@@ -18,6 +19,19 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
     List<Vehicle> findByStatus(VehicleStatus status);
 
     List<Vehicle> findByAssignedDriverId(String driverId);
+
+    // FIX #11: find unassigned vehicles (useful for driver assignment workflows)
+    List<Vehicle> findByAssignedDriverIdIsNull();
+
+    // FIX #11: case-insensitive brand search (useful for admin search)
+    List<Vehicle> findByBrandContainingIgnoreCase(String brand);
+
+    // FIX #5: Aggregate status count — avoids loading 3 full lists just for dashboard numbers
+    @Query("SELECT v.status AS status, COUNT(v) AS total FROM Vehicle v GROUP BY v.status")
+    List<Map<String, Object>> countGroupedByStatus();
+
+    // FIX #11: count by status without loading the full list
+    long countByStatus(VehicleStatus status);
 
     // Vehicles whose insurance expires within N days (sorted soonest first)
     @Query("SELECT v FROM Vehicle v WHERE v.insuranceExpiry IS NOT NULL " +
@@ -47,4 +61,3 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
     @Query("UPDATE Vehicle v SET v.currentMileage = :mileage, v.updatedAt = CURRENT_TIMESTAMP WHERE v.id = :id")
     int updateMileage(@Param("id") Long id, @Param("mileage") Integer mileage);
 }
-

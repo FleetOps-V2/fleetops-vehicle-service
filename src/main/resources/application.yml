@@ -10,18 +10,12 @@ spring:
       initialization-fail-timeout: 60000
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     open-in-view: false
-    defer-datasource-initialization: true
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-  sql:
-    init:
-      mode: always
-      continue-on-error: false
-      schema-locations: classpath:db/postgresql-safeguards.sql
   data:
     redis:
       host: ${REDIS_HOST:redis}
@@ -35,23 +29,41 @@ spring:
       cache-null-values: false
 
 jwt:
-  secret: ${JWT_SECRET:dfsfjsdfkjsdfksdfksdfksdfsdfsdfksdfksdfksdfsdfsfdsdf}
+  # JWT_SECRET MUST be injected via environment variable (Secrets Manager in AWS).
+  # No fallback — service will refuse to start if the secret is missing.
+  secret: ${JWT_SECRET}
 
 cors:
-  allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:8080}
 
 management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,info
   endpoint:
     health:
       show-details: when_authorized
+    info:
+      enabled: true
+  info:
+    env:
+      enabled: true
+    build:
+      enabled: true
 
 logging:
   level:
     com.fleetops: INFO
     com.fleetops.vehicle.cache: DEBUG
     com.fleetops.vehicle.service: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  flyway:
+    locations: classpath:db/migration,classpath:db/dev-migration
+
 
