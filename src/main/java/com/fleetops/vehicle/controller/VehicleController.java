@@ -1,7 +1,9 @@
 package com.fleetops.vehicle.controller;
 
+import com.fleetops.vehicle.dto.FleetAnalysisResponse;
 import com.fleetops.vehicle.entity.Vehicle;
 import com.fleetops.vehicle.entity.Vehicle.VehicleStatus;
+import com.fleetops.vehicle.service.FleetAiService;
 import com.fleetops.vehicle.service.VehicleService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,9 +36,11 @@ import java.util.Map;
 public class VehicleController {
 
     private final VehicleService vehicleService;
+    private final FleetAiService fleetAiService;
 
-    public VehicleController(VehicleService vehicleService) {
+    public VehicleController(VehicleService vehicleService, FleetAiService fleetAiService) {
         this.vehicleService = vehicleService;
+        this.fleetAiService = fleetAiService;
     }
 
     // â”€â”€â”€ READ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -200,6 +204,14 @@ public class VehicleController {
     @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
     public ResponseEntity<Map<String, Long>> getDashboard() {
         return ResponseEntity.ok(vehicleService.getDashboardStats());
+    }
+
+    // ─── AI FLEET ANALYSIS — MANAGER, ADMIN ───────────────────────────────────────
+
+    @GetMapping("/ai/fleet-analysis")
+    @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
+    public ResponseEntity<FleetAnalysisResponse> getFleetAiAnalysis(Authentication authentication) {
+        return ResponseEntity.ok(fleetAiService.analyseFleet(authentication.getName()));
     }
 }
 

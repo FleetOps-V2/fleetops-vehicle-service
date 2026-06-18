@@ -14,6 +14,8 @@ import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Redis Cache Configuration for FleetOps Product Service.
@@ -53,8 +55,17 @@ public class CacheConfig {
 
             log.info("Redis cache manager initialized (TTL={})", DEFAULT_TTL);
 
+            Map<String, RedisCacheConfiguration> perCacheConfig = new HashMap<>();
+            perCacheConfig.put("fleetAnalysis",
+                    RedisCacheConfiguration.defaultCacheConfig()
+                            .entryTtl(Duration.ofMinutes(15))
+                            .disableCachingNullValues()
+                            .serializeKeysWith(RedisSerializationContext.SerializationPair
+                                    .fromSerializer(new StringRedisSerializer())));
+
             return RedisCacheManager.builder(connectionFactory)
                     .cacheDefaults(config)
+                    .withInitialCacheConfigurations(perCacheConfig)
                     .build();
 
         } catch (Exception e) {
