@@ -73,9 +73,11 @@ public class FleetAiService {
         String bodyJson;
         try {
             bodyJson = objectMapper.writeValueAsString(Map.of(
-                    "anthropic_version", "bedrock-2023-05-31",
-                    "max_tokens", 1024,
-                    "messages", List.of(Map.of("role", "user", "content", prompt))
+                    "messages", List.of(Map.of(
+                            "role", "user",
+                            "content", List.of(Map.of("text", prompt))
+                    )),
+                    "inferenceConfig", Map.of("max_new_tokens", 1024)
             ));
         } catch (Exception e) {
             throw new RuntimeException("Failed to serialize Bedrock request", e);
@@ -95,7 +97,7 @@ public class FleetAiService {
         FleetAnalysisResponse result;
         try {
             JsonNode root = objectMapper.readTree(response.body().asUtf8String());
-            String text = root.at("/content/0/text").asText();
+            String text = root.at("/output/message/content/0/text").asText();
             text = text.replaceAll("(?s)```json\\s*", "").replaceAll("(?s)```\\s*", "").trim();
             result = objectMapper.readValue(text, FleetAnalysisResponse.class);
         } catch (Exception e) {
