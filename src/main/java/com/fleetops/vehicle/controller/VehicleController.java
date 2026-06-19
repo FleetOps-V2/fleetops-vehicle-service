@@ -1,10 +1,11 @@
 package com.fleetops.vehicle.controller;
 
-import com.fleetops.vehicle.dto.FleetAnalysisResponse;
 import com.fleetops.vehicle.entity.Vehicle;
 import com.fleetops.vehicle.entity.Vehicle.VehicleStatus;
 import com.fleetops.vehicle.service.FleetAiService;
 import com.fleetops.vehicle.service.VehicleService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -34,6 +35,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/vehicles")
 public class VehicleController {
+
+    private static final Logger log = LoggerFactory.getLogger(VehicleController.class);
 
     private final VehicleService vehicleService;
     private final FleetAiService fleetAiService;
@@ -210,8 +213,14 @@ public class VehicleController {
 
     @GetMapping("/ai/fleet-analysis")
     @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
-    public ResponseEntity<FleetAnalysisResponse> getFleetAiAnalysis(Authentication authentication) {
-        return ResponseEntity.ok(fleetAiService.analyseFleet(authentication.getName()));
+    public ResponseEntity<?> getFleetAiAnalysis(Authentication authentication) {
+        try {
+            return ResponseEntity.ok(fleetAiService.analyseFleet(authentication.getName()));
+        } catch (Exception e) {
+            log.error("Fleet AI analysis failed", e);
+            String cause = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+            return ResponseEntity.status(503).body("Fleet analysis unavailable: " + cause);
+        }
     }
 }
 
