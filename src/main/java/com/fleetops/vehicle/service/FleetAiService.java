@@ -81,7 +81,7 @@ public class FleetAiService {
                                 .content(ContentBlock.fromText(prompt))
                                 .build())
                         .inferenceConfig(InferenceConfiguration.builder()
-                                .maxTokens(1024)
+                                .maxTokens(512)
                                 .build())
                         .build()
         );
@@ -112,44 +112,27 @@ public class FleetAiService {
 
     private String buildPrompt(int total, long serviceAlerts, long insuranceAlerts, List<Vehicle> alertVehicles) {
         StringBuilder sb = new StringBuilder();
-        sb.append("You are a fleet maintenance advisor for a vehicle management platform.\n");
-        sb.append("Analyse the fleet and return ONLY a JSON object — no markdown, no explanation.\n\n");
-        sb.append("JSON format:\n");
-        sb.append("{\n");
-        sb.append("  \"fleetHealthScore\": <0-100 integer>,\n");
-        sb.append("  \"summary\": \"<2-3 sentence fleet health overview>\",\n");
-        sb.append("  \"recommendations\": [\n");
-        sb.append("    {\n");
-        sb.append("      \"vehicleId\": <Long>,\n");
-        sb.append("      \"vehicleNumber\": \"<string>\",\n");
-        sb.append("      \"priority\": \"HIGH|MEDIUM|LOW\",\n");
-        sb.append("      \"taskType\": \"ROUTINE_SERVICE|OIL_CHANGE|TIRE_CHANGE|BATTERY|BREAKDOWN\",\n");
-        sb.append("      \"action\": \"<max 80 chars>\",\n");
-        sb.append("      \"reasoning\": \"<max 150 chars>\",\n");
-        sb.append("      \"confidence\": <0-100 integer>\n");
-        sb.append("    }\n");
-        sb.append("  ]\n");
-        sb.append("}\n\n");
-        sb.append(String.format("Fleet data (%d total vehicles, %d service alerts, %d insurance alerts):\n",
+        sb.append("Fleet advisor. Return ONLY JSON, no markdown:\n");
+        sb.append("{\"fleetHealthScore\":0-100,\"summary\":\"1 sentence\",\"recommendations\":[");
+        sb.append("{\"vehicleId\":0,\"vehicleNumber\":\"\",\"priority\":\"HIGH|MEDIUM|LOW\",");
+        sb.append("\"taskType\":\"ROUTINE_SERVICE|OIL_CHANGE|TIRE_CHANGE|BATTERY|BREAKDOWN\",");
+        sb.append("\"action\":\"<60 chars\",\"reasoning\":\"<80 chars\",\"confidence\":0-100}]}\n\n");
+        sb.append(String.format("Fleet: %d vehicles, %d service alerts, %d insurance alerts.\n",
                 total, serviceAlerts, insuranceAlerts));
 
-        for (Vehicle v : alertVehicles) {
-            sb.append(String.format(
-                    "ID=%d | %s | %s %s | Status=%s | Mileage=%d | LastService=%s | NextServiceDate=%s | NextServiceMileage=%s | InsuranceExpiry=%s%n",
-                    v.getId(), v.getVehicleNumber(), v.getBrand(), v.getModel(), v.getStatus(),
+        List<Vehicle> topVehicles = alertVehicles.stream().limit(8).collect(Collectors.toList());
+        for (Vehicle v : topVehicles) {
+            sb.append(String.format("ID=%d %s km=%d svcDate=%s insExp=%s\n",
+                    v.getId(), v.getVehicleNumber(),
                     v.getCurrentMileage() != null ? v.getCurrentMileage() : 0,
-                    v.getLastServiceDate() != null ? v.getLastServiceDate() : "N/A",
-                    v.getNextServiceDate() != null ? v.getNextServiceDate() : "N/A",
-                    v.getNextServiceMileage() != null ? v.getNextServiceMileage() : "N/A",
-                    v.getInsuranceExpiry() != null ? v.getInsuranceExpiry() : "N/A"
+                    v.getNextServiceDate() != null ? v.getNextServiceDate() : "ok",
+                    v.getInsuranceExpiry() != null ? v.getInsuranceExpiry() : "ok"
             ));
         }
 
         if (alertVehicles.isEmpty()) {
-            sb.append("No vehicles with immediate alerts — all fleet vehicles appear to be in good condition.\n");
+            sb.append("All vehicles healthy. Return empty recommendations.\n");
         }
-
-        sb.append("\nOnly include vehicles that need attention. Return empty recommendations array if fleet is healthy.");
         return sb.toString();
     }
 }
