@@ -12,10 +12,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
-import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
-import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
-import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
+import software.amazon.awssdk.services.bedrockruntime.model.ContentBlock;
+import software.amazon.awssdk.services.bedrockruntime.model.ConversationRole;
+import software.amazon.awssdk.services.bedrockruntime.model.ConverseOutput;
+import software.amazon.awssdk.services.bedrockruntime.model.ConverseRequest;
+import software.amazon.awssdk.services.bedrockruntime.model.ConverseResponse;
+import software.amazon.awssdk.services.bedrockruntime.model.Message;
+import software.amazon.awssdk.services.bedrockruntime.model.StopReason;
+import software.amazon.awssdk.services.bedrockruntime.model.TokenUsage;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -40,7 +45,7 @@ class FleetAiServiceTest {
     @BeforeEach
     void setUp() {
         fleetAiService = new FleetAiService(vehicleRepository, bedrockClient, objectMapper, auditRepository);
-        ReflectionTestUtils.setField(fleetAiService, "modelId", "amazon.nova-lite-v1:0");
+        ReflectionTestUtils.setField(fleetAiService, "modelId", "mistral.mistral-7b-instruct-v0:2");
     }
 
     @Test
@@ -53,17 +58,14 @@ class FleetAiServiceTest {
                 "fleetHealthScore", 70,
                 "summary", "Fleet needs attention.",
                 "recommendations", List.of(Map.of(
-                        "vehicleId", 1,
-                        "vehicleNumber", "FL-001",
-                        "priority", "HIGH",
-                        "taskType", "ROUTINE_SERVICE",
+                        "vehicleId", 1, "vehicleNumber", "FL-001",
+                        "priority", "HIGH", "taskType", "ROUTINE_SERVICE",
                         "action", "Schedule overdue service",
                         "reasoning", "Next service date passed.",
                         "confidence", 90
                 ))
         ));
-        when(bedrockClient.invokeModel(any(InvokeModelRequest.class)))
-                .thenReturn(novaResponse(innerJson));
+        when(bedrockClient.converse(any(ConverseRequest.class))).thenReturn(converseResponse(innerJson));
         when(auditRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         FleetAnalysisResponse result = fleetAiService.analyseFleet("admin");
@@ -88,8 +90,7 @@ class FleetAiServiceTest {
                 "summary", "All vehicles are in good condition.",
                 "recommendations", List.of()
         ));
-        when(bedrockClient.invokeModel(any(InvokeModelRequest.class)))
-                .thenReturn(novaResponse(innerJson));
+        when(bedrockClient.converse(any(ConverseRequest.class))).thenReturn(converseResponse(innerJson));
         when(auditRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         FleetAnalysisResponse result = fleetAiService.analyseFleet("manager1");
@@ -101,7 +102,7 @@ class FleetAiServiceTest {
     @Test
     void analyseFleet_bedrockThrows_propagatesRuntimeException() {
         when(vehicleRepository.findAll()).thenReturn(List.of());
-        when(bedrockClient.invokeModel(any(InvokeModelRequest.class)))
+        when(bedrockClient.converse(any(ConverseRequest.class)))
                 .thenThrow(new RuntimeException("Bedrock unreachable"));
 
         assertThatThrownBy(() -> fleetAiService.analyseFleet("admin"))
@@ -110,12 +111,10 @@ class FleetAiServiceTest {
     }
 
     @Test
-    void analyseFleet_bedrockReturnsMarkdownWrappedJson_stripsMarkdownAndParses() throws Exception {
+    void analyseFleet_markdownWrappedJson_stripsAndParses() throws Exception {
         when(vehicleRepository.findAll()).thenReturn(List.of());
-
         String innerJson = "```json\n{\"fleetHealthScore\":80,\"summary\":\"OK\",\"recommendations\":[]}\n```";
-        when(bedrockClient.invokeModel(any(InvokeModelRequest.class)))
-                .thenReturn(novaResponse(innerJson));
+        when(bedrockClient.converse(any(ConverseRequest.class))).thenReturn(converseResponse(innerJson));
         when(auditRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         FleetAnalysisResponse result = fleetAiService.analyseFleet("admin");
@@ -125,26 +124,20 @@ class FleetAiServiceTest {
 
     @Test
     void analyseFleet_vehicleWithExpiringInsurance_includedInPrompt() throws Exception {
-        // Vehicle with insurance expiring in 20 days (within 30-day threshold)
         Vehicle v = buildVehicle(3L, "FL-003", LocalDate.now().plusMonths(3), 5000, 20000,
                 LocalDate.now().plusDays(20));
         when(vehicleRepository.findAll()).thenReturn(List.of(v));
 
         String innerJson = objectMapper.writeValueAsString(Map.of(
-                "fleetHealthScore", 60,
-                "summary", "Insurance expiry alert.",
+                "fleetHealthScore", 60, "summary", "Insurance expiry alert.",
                 "recommendations", List.of(Map.of(
-                        "vehicleId", 3,
-                        "vehicleNumber", "FL-003",
-                        "priority", "MEDIUM",
-                        "taskType", "ROUTINE_SERVICE",
-                        "action", "Renew insurance",
-                        "reasoning", "Insurance expires within 30 days.",
+                        "vehicleId", 3, "vehicleNumber", "FL-003",
+                        "priority", "MEDIUM", "taskType", "ROUTINE_SERVICE",
+                        "action", "Renew insurance", "reasoning", "Expires within 30 days.",
                         "confidence", 85
                 ))
         ));
-        when(bedrockClient.invokeModel(any(InvokeModelRequest.class)))
-                .thenReturn(novaResponse(innerJson));
+        when(bedrockClient.converse(any(ConverseRequest.class))).thenReturn(converseResponse(innerJson));
         when(auditRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         FleetAnalysisResponse result = fleetAiService.analyseFleet("manager1");
@@ -172,16 +165,16 @@ class FleetAiServiceTest {
         return v;
     }
 
-    private InvokeModelResponse novaResponse(String textContent) throws Exception {
-        String novaJson = objectMapper.writeValueAsString(Map.of(
-                "output", Map.of(
-                        "message", Map.of(
-                                "content", List.of(Map.of("text", textContent))
-                        )
-                )
-        ));
-        return InvokeModelResponse.builder()
-                .body(SdkBytes.fromUtf8String(novaJson))
+    private ConverseResponse converseResponse(String textContent) {
+        return ConverseResponse.builder()
+                .output(ConverseOutput.builder()
+                        .message(Message.builder()
+                                .role(ConversationRole.ASSISTANT)
+                                .content(ContentBlock.fromText(textContent))
+                                .build())
+                        .build())
+                .stopReason(StopReason.END_TURN)
+                .usage(TokenUsage.builder().inputTokens(50).outputTokens(100).totalTokens(150).build())
                 .build();
     }
 }

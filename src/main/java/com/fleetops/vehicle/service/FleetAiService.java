@@ -1,6 +1,5 @@
 package com.fleetops.vehicle.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fleetops.vehicle.dto.FleetAnalysisResponse;
 import com.fleetops.vehicle.entity.AiAnalysisAudit;
@@ -12,15 +11,17 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
-import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
-import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
-import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
+import software.amazon.awssdk.services.bedrockruntime.model.ContentBlock;
+import software.amazon.awssdk.services.bedrockruntime.model.ConversationRole;
+import software.amazon.awssdk.services.bedrockruntime.model.ConverseRequest;
+import software.amazon.awssdk.services.bedrockruntime.model.ConverseResponse;
+import software.amazon.awssdk.services.bedrockruntime.model.InferenceConfiguration;
+import software.amazon.awssdk.services.bedrockruntime.model.Message;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -70,34 +71,24 @@ public class FleetAiService {
 
         String prompt = buildPrompt(allVehicles.size(), serviceAlertCount, insuranceAlertCount, alertVehicles);
 
-        String bodyJson;
-        try {
-            bodyJson = objectMapper.writeValueAsString(Map.of(
-                    "messages", List.of(Map.of(
-                            "role", "user",
-                            "content", List.of(Map.of("text", prompt))
-                    )),
-                    "inferenceConfig", Map.of("max_new_tokens", 1024)
-            ));
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to serialize Bedrock request", e);
-        }
+        log.debug("Calling Bedrock model={} via Converse API for fleet analysis by={}", modelId, requestedBy);
 
-        log.debug("Calling Bedrock model={} for fleet analysis requested by={}", modelId, requestedBy);
-
-        InvokeModelResponse response = bedrockClient.invokeModel(
-                InvokeModelRequest.builder()
+        ConverseResponse response = bedrockClient.converse(
+                ConverseRequest.builder()
                         .modelId(modelId)
-                        .contentType("application/json")
-                        .accept("application/json")
-                        .body(SdkBytes.fromUtf8String(bodyJson))
+                        .messages(Message.builder()
+                                .role(ConversationRole.USER)
+                                .content(ContentBlock.fromText(prompt))
+                                .build())
+                        .inferenceConfig(InferenceConfiguration.builder()
+                                .maxTokens(1024)
+                                .build())
                         .build()
         );
 
         FleetAnalysisResponse result;
         try {
-            JsonNode root = objectMapper.readTree(response.body().asUtf8String());
-            String text = root.at("/output/message/content/0/text").asText();
+            String text = response.output().message().content().get(0).text();
             text = text.replaceAll("(?s)```json\\s*", "").replaceAll("(?s)```\\s*", "").trim();
             result = objectMapper.readValue(text, FleetAnalysisResponse.class);
         } catch (Exception e) {
@@ -145,11 +136,7 @@ public class FleetAiService {
         for (Vehicle v : alertVehicles) {
             sb.append(String.format(
                     "ID=%d | %s | %s %s | Status=%s | Mileage=%d | LastService=%s | NextServiceDate=%s | NextServiceMileage=%s | InsuranceExpiry=%s%n",
-                    v.getId(),
-                    v.getVehicleNumber(),
-                    v.getBrand(),
-                    v.getModel(),
-                    v.getStatus(),
+                    v.getId(), v.getVehicleNumber(), v.getBrand(), v.getModel(), v.getStatus(),
                     v.getCurrentMileage() != null ? v.getCurrentMileage() : 0,
                     v.getLastServiceDate() != null ? v.getLastServiceDate() : "N/A",
                     v.getNextServiceDate() != null ? v.getNextServiceDate() : "N/A",
