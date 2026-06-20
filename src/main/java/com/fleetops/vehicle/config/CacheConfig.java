@@ -45,7 +45,7 @@ public class CacheConfig {
     public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
         try {
             // Verify connectivity before committing to Redis
-            connectionFactory.getConnection().ping();
+            try (var conn = connectionFactory.getConnection()) { conn.ping(); }
 
             RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
                     .entryTtl(DEFAULT_TTL)

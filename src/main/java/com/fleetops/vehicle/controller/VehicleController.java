@@ -131,7 +131,7 @@ public class VehicleController {
             VehicleStatus newStatus = VehicleStatus.valueOf(payload.get("status").toUpperCase());
             VehicleService.StatusUpdateResult result = vehicleService.updateStatus(id, newStatus);
             return switch (result) {
-                case SUCCESS -> ResponseEntity.ok(vehicleService.findById(id).orElse(null));
+                case SUCCESS -> ResponseEntity.ok(vehicleService.findById(id).orElseThrow());
                 case NOT_FOUND -> ResponseEntity.status(404).body("Vehicle not found");
             };
         } catch (IllegalArgumentException e) {
@@ -172,7 +172,7 @@ public class VehicleController {
 
     private ResponseEntity<?> mileageResponse(VehicleService.MileageUpdateResult result, Long id) {
         return switch (result) {
-            case SUCCESS -> ResponseEntity.ok(vehicleService.findById(id).orElse(null));
+            case SUCCESS -> ResponseEntity.ok(vehicleService.findById(id).orElseThrow());
             case NOT_FOUND -> ResponseEntity.status(404).body("Vehicle not found");
             case INVALID -> ResponseEntity.badRequest().body("Mileage must be a non-negative number");
         };

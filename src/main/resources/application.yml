@@ -39,6 +39,7 @@ cors:
 management:
   endpoints:
     web:
+      base-path: /
       exposure:
         include: health,info
   endpoint:
@@ -60,7 +61,9 @@ logging:
 
 bedrock:
   region: ${BEDROCK_REGION:us-east-1}
-  model-id: ${BEDROCK_MODEL_ID:anthropic.claude-3-haiku-20240307-v1:0}
+  model-id: ${BEDROCK_MODEL_ID:amazon.nova-lite-v1:0}
+  access-key: ${BEDROCK_ACCESS_KEY:}
+  secret-key: ${BEDROCK_SECRET_KEY:}
 
 ---
 spring:

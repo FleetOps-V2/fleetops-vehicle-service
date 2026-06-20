@@ -36,13 +36,7 @@ public interface VehicleTelemetryRepository extends JpaRepository<VehicleTelemet
     /**
      * Latest ping for a specific vehicle — used by GET /api/tracking/vehicle/{id}.
      */
-    @Query("""
-        SELECT t FROM VehicleTelemetry t
-        WHERE t.vehicleId = :vehicleId
-        ORDER BY t.recordedAt DESC
-        LIMIT 1
-        """)
-    Optional<VehicleTelemetry> findLatestByVehicleId(Long vehicleId);
+    Optional<VehicleTelemetry> findFirstByVehicleIdOrderByRecordedAtDesc(Long vehicleId);
 
     /**
      * Recent telemetry history for a vehicle — available for future analytics/audit.

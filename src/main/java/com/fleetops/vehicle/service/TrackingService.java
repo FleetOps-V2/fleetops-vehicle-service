@@ -73,7 +73,7 @@ public class TrackingService {
      */
     @Transactional(readOnly = true)
     public Optional<VehicleTelemetry> getVehiclePosition(Long vehicleId) {
-        return telemetryRepository.findLatestByVehicleId(vehicleId);
+        return telemetryRepository.findFirstByVehicleIdOrderByRecordedAtDesc(vehicleId);
     }
 
     /**

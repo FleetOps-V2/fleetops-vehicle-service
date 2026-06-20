@@ -66,10 +66,6 @@ public class VehicleTelemetry {
     @PrePersist
     protected void onCreate() {
         recordedAt = LocalDateTime.now();
-        // Auto-classify status from speed if not explicitly set
-        if (speed != null && status == TelemetryStatus.IDLE && speed > 0) {
-            status = speed > 85 ? TelemetryStatus.SPEEDING : TelemetryStatus.EN_ROUTE;
-        }
     }
 
     // Getters and Setters
