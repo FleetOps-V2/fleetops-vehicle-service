@@ -82,6 +82,7 @@ public class FleetAiService {
         LocalDate insuranceThreshold = today.plusDays(30);
 
         List<Vehicle> alertVehicles = allVehicles.stream()
+                .filter(v -> v.getStatus() == Vehicle.VehicleStatus.ACTIVE)
                 .filter(v -> {
                     boolean serviceDue = (v.getNextServiceDate() != null && !today.isBefore(v.getNextServiceDate()))
                             || (v.getNextServiceMileage() != null && v.getCurrentMileage() != null
@@ -130,14 +131,15 @@ public class FleetAiService {
         sb.append("\"action\":\"<60 chars\",\"reasoning\":\"<80 chars\",\"confidence\":0-100}]}\n\n");
         sb.append(String.format("Fleet: %d vehicles, %d service alerts, %d insurance alerts.\n",
                 total, serviceAlerts, insuranceAlerts));
-        sb.append("Vehicles needing attention (id, number, currentKm/nextServiceKm, nextServiceDate, insuranceExpiry):\n");
+        sb.append("Only ACTIVE vehicles are listed below — IN_SERVICE/BREAKDOWN/RETIRED vehicles are already being handled.\n");
+        sb.append("Vehicles needing attention (id, number, status, currentKm/nextServiceKm, nextServiceDate, insuranceExpiry):\n");
 
         alertVehicles.stream().limit(8).forEach(v -> {
             String svcMileage = v.getNextServiceMileage() != null ? String.valueOf(v.getNextServiceMileage()) : "-";
             String svcDate = v.getNextServiceDate() != null ? v.getNextServiceDate().toString() : "-";
             String insExp = v.getInsuranceExpiry() != null ? v.getInsuranceExpiry().toString() : "-";
-            sb.append(String.format("%d %s km=%d/%s svc=%s ins=%s\n",
-                    v.getId(), v.getVehicleNumber(),
+            sb.append(String.format("%d %s status=%s km=%d/%s svc=%s ins=%s\n",
+                    v.getId(), v.getVehicleNumber(), v.getStatus(),
                     v.getCurrentMileage() != null ? v.getCurrentMileage() : 0,
                     svcMileage, svcDate, insExp));
         });
