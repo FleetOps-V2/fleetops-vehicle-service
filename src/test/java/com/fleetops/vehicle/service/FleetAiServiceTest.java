@@ -46,6 +46,8 @@ class FleetAiServiceTest {
     void setUp() {
         fleetAiService = new FleetAiService(vehicleRepository, bedrockClient, objectMapper, auditRepository);
         ReflectionTestUtils.setField(fleetAiService, "modelId", "mistral.mistral-7b-instruct-v0:2");
+        // Spring doesn't inject @Lazy self-proxy in unit tests; set it directly so analyseFleet() can call invokeBedrockCached()
+        ReflectionTestUtils.setField(fleetAiService, "self", fleetAiService);
     }
 
     @Test
