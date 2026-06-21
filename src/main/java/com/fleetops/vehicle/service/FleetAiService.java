@@ -108,7 +108,7 @@ public class FleetAiService {
                                 .content(ContentBlock.fromText(prompt))
                                 .build())
                         .inferenceConfig(InferenceConfiguration.builder()
-                                .maxTokens(512)
+                                .maxTokens(1200)
                                 .build())
                         .build()
         );
@@ -123,29 +123,48 @@ public class FleetAiService {
     }
 
     private String buildPrompt(int total, long serviceAlerts, long insuranceAlerts, List<Vehicle> alertVehicles) {
+        LocalDate today = LocalDate.now();
         StringBuilder sb = new StringBuilder();
-        sb.append("You are a fleet maintenance advisor. Return ONLY JSON, no markdown:\n");
-        sb.append("{\"fleetHealthScore\":0-100,\"summary\":\"1 sentence\",\"recommendations\":[");
-        sb.append("{\"vehicleId\":0,\"vehicleNumber\":\"\",\"priority\":\"HIGH|MEDIUM|LOW\",");
+        sb.append("You are a fleet maintenance advisor writing for a non-technical fleet manager.\n");
+        sb.append("Return ONLY valid JSON, no markdown, no explanation outside the JSON:\n");
+        sb.append("{\"fleetHealthScore\":0-100,\"summary\":\"2 sentences explaining overall fleet status and the most urgent risk\",");
+        sb.append("\"recommendations\":[{\"vehicleId\":0,\"vehicleNumber\":\"\",\"priority\":\"HIGH|MEDIUM|LOW\",");
         sb.append("\"taskType\":\"ROUTINE_SERVICE|OIL_CHANGE|TIRE_CHANGE|BATTERY|BREAKDOWN\",");
-        sb.append("\"action\":\"<60 chars\",\"reasoning\":\"<80 chars\",\"confidence\":0-100}]}\n\n");
-        sb.append(String.format("Fleet: %d vehicles, %d service alerts, %d insurance alerts.\n",
-                total, serviceAlerts, insuranceAlerts));
-        sb.append("Only ACTIVE vehicles are listed below — IN_SERVICE/BREAKDOWN/RETIRED vehicles are already being handled.\n");
-        sb.append("Vehicles needing attention (id, number, status, currentKm/nextServiceKm, nextServiceDate, insuranceExpiry):\n");
+        sb.append("\"action\":\"Short imperative title (max 70 chars)\",");
+        sb.append("\"reasoning\":\"2-3 sentences: state the specific problem with numbers, explain the operational or financial risk if ignored, and recommend the urgency (e.g. within X days/weeks)\",");
+        sb.append("\"confidence\":0-100}]}\n\n");
+        sb.append(String.format("Fleet overview: %d total vehicles, %d needing service, %d with insurance expiring within 30 days. Today: %s.\n",
+                total, serviceAlerts, insuranceAlerts, today));
+        sb.append("Only ACTIVE vehicles are listed — vehicles already IN_SERVICE or BREAKDOWN are being handled.\n");
+        sb.append("Vehicles needing attention:\n");
 
         alertVehicles.stream().limit(8).forEach(v -> {
-            String svcMileage = v.getNextServiceMileage() != null ? String.valueOf(v.getNextServiceMileage()) : "-";
-            String svcDate = v.getNextServiceDate() != null ? v.getNextServiceDate().toString() : "-";
-            String insExp = v.getInsuranceExpiry() != null ? v.getInsuranceExpiry().toString() : "-";
-            sb.append(String.format("%d %s status=%s km=%d/%s svc=%s ins=%s\n",
-                    v.getId(), v.getVehicleNumber(), v.getStatus(),
-                    v.getCurrentMileage() != null ? v.getCurrentMileage() : 0,
-                    svcMileage, svcDate, insExp));
+            long currentKm = v.getCurrentMileage() != null ? v.getCurrentMileage() : 0;
+            String kmGap = "-";
+            if (v.getNextServiceMileage() != null) {
+                long gap = v.getNextServiceMileage() - currentKm;
+                kmGap = gap <= 0 ? "OVERDUE by " + Math.abs(gap) + " km" : gap + " km until service";
+            }
+            String svcDate = "-";
+            if (v.getNextServiceDate() != null) {
+                long daysUntil = today.until(v.getNextServiceDate(), java.time.temporal.ChronoUnit.DAYS);
+                svcDate = daysUntil < 0
+                        ? "service date OVERDUE by " + Math.abs(daysUntil) + " days"
+                        : "service due in " + daysUntil + " days (" + v.getNextServiceDate() + ")";
+            }
+            String insStatus = "-";
+            if (v.getInsuranceExpiry() != null) {
+                long daysUntilIns = today.until(v.getInsuranceExpiry(), java.time.temporal.ChronoUnit.DAYS);
+                insStatus = daysUntilIns < 0
+                        ? "insurance EXPIRED " + Math.abs(daysUntilIns) + " days ago"
+                        : "insurance expires in " + daysUntilIns + " days (" + v.getInsuranceExpiry() + ")";
+            }
+            sb.append(String.format("- %s (id=%d): current=%d km, mileage=%s, %s, %s\n",
+                    v.getVehicleNumber(), v.getId(), currentKm, kmGap, svcDate, insStatus));
         });
 
         if (alertVehicles.isEmpty()) {
-            sb.append("All vehicles healthy.\n");
+            sb.append("All vehicles are healthy — no action required.\n");
         }
         return sb.toString();
     }
