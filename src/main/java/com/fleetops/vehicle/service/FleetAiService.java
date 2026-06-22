@@ -108,7 +108,7 @@ public class FleetAiService {
                                 .content(ContentBlock.fromText(prompt))
                                 .build())
                         .inferenceConfig(InferenceConfiguration.builder()
-                                .maxTokens(1200)
+                                .maxTokens(2500)
                                 .build())
                         .build()
         );
