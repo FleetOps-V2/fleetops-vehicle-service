@@ -5,3 +5,8 @@ jwt:
 bedrock:
   region: us-east-1
   model-id: anthropic.claude-3-haiku-20240307-v1:0
+
+app:
+  s3:
+    bucket: test-vehicle-docs
+    region: us-east-1
