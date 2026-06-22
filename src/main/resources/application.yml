@@ -64,6 +64,11 @@ bedrock:
   access-key: ${BEDROCK_ACCESS_KEY:}
   secret-key: ${BEDROCK_SECRET_KEY:}
 
+app:
+  s3:
+    bucket: ${S3_BUCKET_NAME:fleetops-prod-vehicle-docs}
+    region: ${AWS_REGION:us-east-1}
+
 ---
 spring:
   config:
