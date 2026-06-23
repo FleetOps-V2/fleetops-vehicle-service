@@ -61,8 +61,7 @@ logging:
 bedrock:
   region: ${BEDROCK_REGION:us-east-1}
   model-id: ${BEDROCK_MODEL_ID:amazon.nova-lite-v1:0}
-  access-key: ${BEDROCK_ACCESS_KEY:}
-  secret-key: ${BEDROCK_SECRET_KEY:}
+  role-arn: ${BEDROCK_ROLE_ARN:}
 
 app:
   s3:
